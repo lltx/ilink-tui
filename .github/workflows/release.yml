@@ -1,0 +1,107 @@
+name: Release Native Binaries
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-native:
+    name: Build Native (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: graalvm-community
+          java-version: "17"
+          components: native-image
+          cache: maven
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Show toolchain versions
+        shell: bash
+        run: |
+          java --version
+          mvn --version
+          native-image --version
+
+      - name: Build native binary
+        shell: bash
+        run: mvn -B -ntp -Pnative package
+
+      - name: Prepare release assets
+        shell: bash
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+          RUNNER_OS: ${{ runner.os }}
+          RUNNER_ARCH: ${{ runner.arch }}
+        run: |
+          set -euo pipefail
+
+          os="$(echo "$RUNNER_OS" | tr '[:upper:]' '[:lower:]')"
+          arch="$(echo "$RUNNER_ARCH" | tr '[:upper:]' '[:lower:]')"
+          binary="target/ilink-tui"
+          extension=""
+
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            binary="${binary}.exe"
+            extension=".exe"
+          fi
+
+          mkdir -p dist
+          asset="ilink-tui-${TAG_NAME}-${os}-${arch}${extension}"
+          cp "$binary" "dist/${asset}"
+
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "dist/${asset}" > "dist/${asset}.sha256"
+          else
+            shasum -a 256 "dist/${asset}" > "dist/${asset}.sha256"
+          fi
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.os }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish Release
+    runs-on: ubuntu-latest
+    needs: build-native
+
+    steps:
+      - name: Download built assets
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG_NAME: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release create "$TAG_NAME" --verify-tag --generate-notes
+          fi
+
+          find release-assets -type f -print0 | xargs -0 gh release upload "$TAG_NAME" --clobber

@@ -1,0 +1,10 @@
+{
+  "resources": [
+    {
+      "glob": "dev/tamboui/tui/bindings/*.properties"
+    },
+    {
+      "glob": "META-INF/services/java.net.spi.InetAddressResolverProvider"
+    }
+  ]
+}
