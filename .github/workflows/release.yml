@@ -22,13 +22,13 @@ jobs:
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up GraalVM
         uses: graalvm/setup-graalvm@v1
         with:
           distribution: graalvm-community
-          java-version: "17"
+          java-version: "21"
           components: native-image
           cache: maven
           github-token: ${{ secrets.GITHUB_TOKEN }}
