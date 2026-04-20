@@ -38,7 +38,6 @@ jobs:
         run: |
           java --version
           mvn --version
-          native-image --version
 
       - name: Build native binary
         shell: bash

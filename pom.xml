@@ -127,7 +127,6 @@
                             <verbose>true</verbose>
                             <buildArgs>
                                 <buildArg>--no-fallback</buildArg>
-                                <buildArg>--exact-reachability-metadata</buildArg>
                             </buildArgs>
                         </configuration>
                     </plugin>
